@@ -914,10 +914,12 @@ const ADMIN_TEMPLATE = `
                         })
                     });
 
-                    if (response.ok) {
+                    const data = await response.json();
+
+                    if (data.success) {
                         onSave();
                     } else {
-                        alert('Failed to save post');
+                        alert(data.error || 'Failed to save post');
                     }
                 } catch (error) {
                     console.error('Error saving post:', error);
@@ -1104,6 +1106,8 @@ const ADMIN_TEMPLATE = `
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
             const [currentPage, setCurrentPage] = useState(1);
+            const [showCreateForm, setShowCreateForm] = useState(false);
+            const [editingUser, setEditingUser] = useState(null);
 
             useEffect(() => {
                 fetchUsers();
@@ -1254,6 +1258,18 @@ const ADMIN_TEMPLATE = `
             return React.createElement('div', {
                 className: 'space-y-6'
             }, [
+                showCreateForm && React.createElement(UserForm, { 
+                    key: 'create-form',
+                    onClose: () => setShowCreateForm(false),
+                    onSuccess: () => { setShowCreateForm(false); fetchUsers(); }
+                }),
+                editingUser && React.createElement(UserForm, { 
+                    key: 'edit-form',
+                    user: editingUser,
+                    onClose: () => setEditingUser(null),
+                    onSuccess: () => { setEditingUser(null); fetchUsers(); }
+                }),
+
                 // Professional Header (Matching Next.js)
                 React.createElement('div', {
                     key: 'header',
@@ -1272,7 +1288,7 @@ const ADMIN_TEMPLATE = `
                     React.createElement('button', {
                         key: 'create-btn',
                         className: 'flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors duration-150',
-                        onClick: () => alert('User creation form coming soon!')
+                        onClick: () => setShowCreateForm(true)
                     }, [
                         PlusIcon,
                         React.createElement('span', { key: 'text' }, 'New User')
@@ -1430,7 +1446,7 @@ const ADMIN_TEMPLATE = `
                                         React.createElement('button', {
                                             key: 'edit',
                                             className: 'text-blue-600 hover:text-blue-900',
-                                            onClick: () => alert('User editing coming soon!')
+                                            onClick: () => setEditingUser(user)
                                         }, 'Edit'),
                                         React.createElement('button', {
                                             key: 'delete',
@@ -1455,7 +1471,7 @@ const ADMIN_TEMPLATE = `
                             React.createElement('button', {
                                 key: 'create',
                                 className: 'mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded',
-                                onClick: () => alert('User creation form coming soon!')
+                                onClick: () => setShowCreateForm(true)
                             }, 'Create New User')
                         ])
                     )
@@ -1493,11 +1509,143 @@ const ADMIN_TEMPLATE = `
             ]);
         }
 
+        // User Form Component
+        function UserForm({ user, onClose, onSuccess }) {
+            const [formData, setFormData] = useState({
+                name: user?.name || '',
+                email: user?.email || '',
+                password: '',
+                role: user?.role || 'author',
+                avatar_url: user?.avatar_url || ''
+            });
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+
+                // Don't send empty password for updates
+                const submitData = { ...formData };
+                if (user && !submitData.password) {
+                    delete submitData.password;
+                }
+
+                try {
+                    const token = localStorage.getItem('auth_token');
+                    const url = user ? '/api/users/' + user.id : '/api/users';
+                    const method = user ? 'PUT' : 'POST';
+                    
+                    const response = await fetch(url, {
+                        method,
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(submitData)
+                    });
+                    
+                    const data = await response.json();
+
+                    if (data.success) {
+                        onSuccess();
+                    } else {
+                        setError(data.error || 'Failed to save user');
+                    }
+                } catch (err) {
+                    console.error('Error saving user:', err);
+                    setError('Failed to save user');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return React.createElement('div', { className: 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50' }, [
+                React.createElement('div', { key: 'modal', className: 'bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4' }, [
+                    React.createElement('h3', { key: 'title', className: 'text-lg font-medium text-gray-900 mb-4' }, 
+                        user ? 'Edit User' : 'Create New User'),
+                    
+                    error && React.createElement('div', { key: 'error', className: 'mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800' }, error),
+                    
+                    React.createElement('form', { key: 'form', onSubmit: handleSubmit }, [
+                        React.createElement('div', { key: 'name-field', className: 'mb-4' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Full Name'),
+                            React.createElement('input', {
+                                type: 'text',
+                                required: true,
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.name,
+                                onChange: (e) => setFormData(prev => ({ ...prev, name: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'email-field', className: 'mb-4' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Email'),
+                            React.createElement('input', {
+                                type: 'email',
+                                required: true,
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.email,
+                                onChange: (e) => setFormData(prev => ({ ...prev, email: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'password-field', className: 'mb-4' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 
+                                user ? 'Password (leave blank to keep current)' : 'Password'),
+                            React.createElement('input', {
+                                type: 'password',
+                                required: !user, // Only required for new users
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.password,
+                                onChange: (e) => setFormData(prev => ({ ...prev, password: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'role-field', className: 'mb-4' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Role'),
+                            React.createElement('select', {
+                                required: true,
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.role,
+                                onChange: (e) => setFormData(prev => ({ ...prev, role: e.target.value }))
+                            }, [
+                                React.createElement('option', { key: 'author', value: 'author' }, 'Author'),
+                                React.createElement('option', { key: 'editor', value: 'editor' }, 'Editor'),
+                                React.createElement('option', { key: 'admin', value: 'admin' }, 'Admin')
+                            ])
+                        ]),
+                        React.createElement('div', { key: 'avatar-field', className: 'mb-6' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Avatar URL (Optional)'),
+                            React.createElement('input', {
+                                type: 'url',
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.avatar_url,
+                                onChange: (e) => setFormData(prev => ({ ...prev, avatar_url: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'buttons', className: 'flex justify-end space-x-3' }, [
+                            React.createElement('button', {
+                                type: 'button',
+                                className: 'px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50',
+                                onClick: onClose
+                            }, 'Cancel'),
+                            React.createElement('button', {
+                                type: 'submit',
+                                disabled: loading,
+                                className: 'px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50',
+                            }, loading ? 'Saving...' : (user ? 'Update User' : 'Create User'))
+                        ])
+                    ])
+                ])
+            ]);
+        }
+
         // Categories Management Component (Professional - Matching Next.js)
         function CategoriesManagement() {
             const [categories, setCategories] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
+            const [showCreateForm, setShowCreateForm] = useState(false);
+            const [editingCategory, setEditingCategory] = useState(null);
 
             useEffect(() => {
                 fetchCategories();
@@ -1657,6 +1805,18 @@ const ADMIN_TEMPLATE = `
             return React.createElement('div', {
                 className: 'space-y-6'
             }, [
+                showCreateForm && React.createElement(CategoryForm, { 
+                    key: 'create-form',
+                    onClose: () => setShowCreateForm(false),
+                    onSuccess: () => { setShowCreateForm(false); fetchCategories(); }
+                }),
+                editingCategory && React.createElement(CategoryForm, { 
+                    key: 'edit-form',
+                    category: editingCategory,
+                    onClose: () => setEditingCategory(null),
+                    onSuccess: () => { setEditingCategory(null); fetchCategories(); }
+                }),
+
                 // Professional Header (Matching Next.js)
                 React.createElement('div', {
                     key: 'header',
@@ -1675,7 +1835,7 @@ const ADMIN_TEMPLATE = `
                     React.createElement('button', {
                         key: 'create-btn',
                         className: 'flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors duration-150',
-                        onClick: () => alert('Category creation form coming soon!')
+                        onClick: () => setShowCreateForm(true)
                     }, [
                         PlusIcon,
                         React.createElement('span', { key: 'text' }, 'New Category')
@@ -1792,7 +1952,7 @@ const ADMIN_TEMPLATE = `
                                     React.createElement('button', {
                                         key: 'edit',
                                         className: 'p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors duration-150',
-                                        onClick: () => alert('Category editing coming soon!'),
+                                        onClick: () => setEditingCategory(category),
                                         title: 'Edit category'
                                     }, PencilIcon),
                                     React.createElement('button', {
@@ -1824,8 +1984,132 @@ const ADMIN_TEMPLATE = `
                     React.createElement('button', {
                         key: 'create',
                         className: 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded',
-                        onClick: () => alert('Category creation form coming soon!')
+                        onClick: () => setShowCreateForm(true)
                     }, 'Create Your First Category')
+                ])
+            ]);
+        }
+
+        // Category Form Component
+        function CategoryForm({ category, onClose, onSuccess }) {
+            const [formData, setFormData] = useState({
+                name: category?.name || '',
+                description: category?.description || '',
+                slug: category?.slug || '',
+                color: category?.color || '#3B82F6'
+            });
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            const generateSlug = (name) => {
+                return name.toLowerCase()
+                    .replace(/[^\w\s-]/g, '')
+                    .replace(/\s+/g, '-')
+                    .trim();
+            };
+
+            const handleNameChange = (e) => {
+                const newName = e.target.value;
+                setFormData(prev => ({ 
+                    ...prev, 
+                    name: newName,
+                    slug: prev.slug || generateSlug(newName)
+                }));
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+
+                try {
+                    const token = localStorage.getItem('auth_token');
+                    const url = category ? '/api/categories/' + category.id : '/api/categories';
+                    const method = category ? 'PUT' : 'POST';
+                    
+                    const response = await fetch(url, {
+                        method,
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const data = await response.json();
+
+                    if (data.success) {
+                        onSuccess();
+                    } else {
+                        setError(data.error || 'Failed to save category');
+                    }
+                } catch (err) {
+                    console.error('Error saving category:', err);
+                    setError('Failed to save category');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return React.createElement('div', { className: 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50' }, [
+                React.createElement('div', { key: 'modal', className: 'bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4' }, [
+                    React.createElement('h3', { key: 'title', className: 'text-lg font-medium text-gray-900 mb-4' }, 
+                        category ? 'Edit Category' : 'Create New Category'),
+                    
+                    error && React.createElement('div', { key: 'error', className: 'mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800' }, error),
+                    
+                    React.createElement('form', { key: 'form', onSubmit: handleSubmit }, [
+                        React.createElement('div', { key: 'name-field', className: 'mb-4' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Name'),
+                            React.createElement('input', {
+                                type: 'text',
+                                required: true,
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.name,
+                                onChange: handleNameChange
+                            })
+                        ]),
+                        React.createElement('div', { key: 'slug-field', className: 'mb-4' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Slug'),
+                            React.createElement('input', {
+                                type: 'text',
+                                required: true,
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.slug,
+                                onChange: (e) => setFormData(prev => ({ ...prev, slug: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'desc-field', className: 'mb-4' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Description (Optional)'),
+                            React.createElement('textarea', {
+                                rows: 3,
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.description,
+                                onChange: (e) => setFormData(prev => ({ ...prev, description: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'color-field', className: 'mb-6' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Color'),
+                            React.createElement('input', {
+                                type: 'color',
+                                className: 'w-full h-10 border border-gray-300 rounded-md cursor-pointer',
+                                value: formData.color,
+                                onChange: (e) => setFormData(prev => ({ ...prev, color: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'buttons', className: 'flex justify-end space-x-3' }, [
+                            React.createElement('button', {
+                                type: 'button',
+                                className: 'px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50',
+                                onClick: onClose
+                            }, 'Cancel'),
+                            React.createElement('button', {
+                                type: 'submit',
+                                disabled: loading,
+                                className: 'px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50',
+                            }, loading ? 'Saving...' : (category ? 'Update Category' : 'Create Category'))
+                        ])
+                    ])
                 ])
             ]);
         }
@@ -2577,6 +2861,8 @@ const ADMIN_TEMPLATE = `
             const [tags, setTags] = useState([]);
             const [loading, setLoading] = useState(true);
             const [error, setError] = useState(null);
+            const [showCreateForm, setShowCreateForm] = useState(false);
+            const [editingTag, setEditingTag] = useState(null);
 
             useEffect(() => {
                 fetchTags();
@@ -2663,6 +2949,18 @@ const ADMIN_TEMPLATE = `
             }
 
             return React.createElement('div', { className: 'space-y-6' }, [
+                showCreateForm && React.createElement(TagForm, { 
+                    key: 'create-form',
+                    onClose: () => setShowCreateForm(false),
+                    onSuccess: () => { setShowCreateForm(false); fetchTags(); }
+                }),
+                editingTag && React.createElement(TagForm, { 
+                    key: 'edit-form',
+                    tag: editingTag,
+                    onClose: () => setEditingTag(null),
+                    onSuccess: () => { setEditingTag(null); fetchTags(); }
+                }),
+
                 // Header
                 React.createElement('div', { key: 'header', className: 'flex justify-between items-center' }, [
                     React.createElement('div', { key: 'left' }, [
@@ -2675,7 +2973,7 @@ const ADMIN_TEMPLATE = `
                     React.createElement('button', {
                         key: 'create-btn',
                         className: 'flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors duration-150',
-                        onClick: () => alert('Tag creation form coming soon!')
+                        onClick: () => setShowCreateForm(true)
                     }, [
                         PlusIcon,
                         React.createElement('span', { key: 'text' }, 'New Tag')
@@ -2717,7 +3015,7 @@ const ADMIN_TEMPLATE = `
                                         React.createElement('div', { key: 'actions', className: 'flex items-center space-x-2' }, [
                                             React.createElement('button', {
                                                 className: 'text-gray-400 hover:text-blue-500 transition-colors',
-                                                onClick: () => alert('Edit tag coming soon!'),
+                                                onClick: () => setEditingTag(tag),
                                                 title: 'Edit tag'
                                             }, PencilIcon),
                                             React.createElement('button', {
@@ -2741,13 +3039,110 @@ const ADMIN_TEMPLATE = `
                         React.createElement('button', {
                             key: 'create-btn',
                             className: 'inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700',
-                            onClick: () => alert('Tag creation form coming soon!')
+                            onClick: () => setShowCreateForm(true)
                         }, [
                             PlusIcon,
                             React.createElement('span', { className: 'ml-2' }, 'New Tag')
                         ])
                     ])
                 )
+            ]);
+        }
+
+        // Tag Form Component
+        function TagForm({ tag, onClose, onSuccess }) {
+            const [formData, setFormData] = useState({
+                name: tag?.name || '',
+                description: tag?.description || '',
+                color: tag?.color || '#3B82F6'
+            });
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState(null);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError(null);
+
+                try {
+                    const token = localStorage.getItem('auth_token');
+                    const url = tag ? '/api/tags/' + tag.id : '/api/tags';
+                    const method = tag ? 'PUT' : 'POST';
+                    
+                    const response = await fetch(url, {
+                        method,
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const data = await response.json();
+
+                    if (data.success) {
+                        onSuccess();
+                    } else {
+                        setError(data.error || 'Failed to save tag');
+                    }
+                } catch (err) {
+                    console.error('Error saving tag:', err);
+                    setError('Failed to save tag');
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return React.createElement('div', { className: 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50' }, [
+                React.createElement('div', { key: 'modal', className: 'bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4' }, [
+                    React.createElement('h3', { key: 'title', className: 'text-lg font-medium text-gray-900 mb-4' }, 
+                        tag ? 'Edit Tag' : 'Create New Tag'),
+                    
+                    error && React.createElement('div', { key: 'error', className: 'mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-800' }, error),
+                    
+                    React.createElement('form', { key: 'form', onSubmit: handleSubmit }, [
+                        React.createElement('div', { key: 'name-field', className: 'mb-4' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Name'),
+                            React.createElement('input', {
+                                type: 'text',
+                                required: true,
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.name,
+                                onChange: (e) => setFormData(prev => ({ ...prev, name: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'desc-field', className: 'mb-4' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Description (Optional)'),
+                            React.createElement('textarea', {
+                                rows: 3,
+                                className: 'w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500',
+                                value: formData.description,
+                                onChange: (e) => setFormData(prev => ({ ...prev, description: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'color-field', className: 'mb-6' }, [
+                            React.createElement('label', { className: 'block text-sm font-medium text-gray-700 mb-2' }, 'Color'),
+                            React.createElement('input', {
+                                type: 'color',
+                                className: 'w-full h-10 border border-gray-300 rounded-md cursor-pointer',
+                                value: formData.color,
+                                onChange: (e) => setFormData(prev => ({ ...prev, color: e.target.value }))
+                            })
+                        ]),
+                        React.createElement('div', { key: 'buttons', className: 'flex justify-end space-x-3' }, [
+                            React.createElement('button', {
+                                type: 'button',
+                                className: 'px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50',
+                                onClick: onClose
+                            }, 'Cancel'),
+                            React.createElement('button', {
+                                type: 'submit',
+                                disabled: loading,
+                                className: 'px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50',
+                            }, loading ? 'Saving...' : (tag ? 'Update Tag' : 'Create Tag'))
+                        ])
+                    ])
+                ])
             ]);
         }
 
