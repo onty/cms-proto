@@ -1,4 +1,4 @@
-import Database from '@/lib/db';
+import { Database } from '@/lib/database-adapter';
 import { Category, CreateCategoryData, UpdateCategoryData, CategoryQuery } from '@/types';
 
 export class CategoryModel {

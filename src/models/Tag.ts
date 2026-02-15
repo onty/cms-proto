@@ -1,4 +1,4 @@
-import Database from '@/lib/db';
+import { Database } from '@/lib/database-adapter';
 import { Tag, CreateTagData } from '@/types';
 
 export class TagModel {

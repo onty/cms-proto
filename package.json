@@ -6,7 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "workers:dev": "wrangler dev",
+    "workers:build": "tsc --project tsconfig.workers.json",
+    "workers:deploy": "wrangler deploy",
+    "workers:tail": "wrangler tail",
+    "db:create": "wrangler d1 create cms-prototype-db",
+    "db:local": "wrangler d1 execute cms-prototype-db --local --file=migrations/d1-schema.sql && wrangler d1 execute cms-prototype-db --local --file=migrations/d1-seed.sql",
+    "db:remote": "wrangler d1 execute cms-prototype-db --file=migrations/d1-schema.sql && wrangler d1 execute cms-prototype-db --file=migrations/d1-seed.sql",
+    "db:migrations": "wrangler d1 execute cms-prototype-db --file=migrations/d1-schema.sql"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -32,6 +40,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260214.0",
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
@@ -40,6 +49,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.65.0"
   }
 }

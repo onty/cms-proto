@@ -1,0 +1,37 @@
+# Cloudflare Workers configuration for CMS Prototype
+
+name = "cms-prototype"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Account details (you'll need to update these)
+# account_id = "your-account-id"  # Get from Cloudflare dashboard
+# zone_id = "your-zone-id"        # Optional, for custom domain
+
+# Environment variables
+[vars]
+ENVIRONMENT = "production"
+NODE_ENV = "production"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "cms-prototype-db"
+database_id = "8fbd0fd4-38e7-48db-99dc-acdb7be5d675"  # Will be created when you run: wrangler d1 create cms-prototype-db
+
+# KV storage for sessions (optional, can use D1 for now)
+# [[kv_namespaces]]
+# binding = "SESSIONS"
+# id = "your-kv-namespace-id"
+
+# Custom domain (optional)
+# routes = [
+#   { pattern = "cms.yourdomain.com/*", custom_domain = true }
+# ]
+
+# Build configuration - Wrangler handles TypeScript compilation automatically
+
+# Development server
+[dev]
+port = 8787

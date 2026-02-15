@@ -1,6 +1,6 @@
-import Database from '@/lib/db';
+import { Database } from '@/lib/database-adapter';
 import { User, CreateUserData, UpdateUserData } from '@/types';
-import bcrypt from 'bcrypt';
+import { hashPassword, verifyPassword } from '@/lib/password-hasher';
 
 export class UserModel {
   /**
@@ -39,21 +39,9 @@ export class UserModel {
   }
 
   /**
-   * Get user by email
+   * Get user by email (includes password hash for authentication)
    */
-  static async getByEmail(email: string): Promise<User | null> {
-    return await Database.queryOne<User>(
-      `SELECT id, email, name, role, avatar_url, created_at, updated_at, last_login, is_active 
-       FROM users 
-       WHERE email = ? AND is_active = TRUE`,
-      [email]
-    );
-  }
-
-  /**
-   * Get user by email with password hash (for authentication)
-   */
-  static async getByEmailWithPassword(email: string): Promise<(User & { password_hash: string }) | null> {
+  static async getByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
     return await Database.queryOne<User & { password_hash: string }>(
       `SELECT id, email, name, role, avatar_url, password_hash, created_at, updated_at, last_login, is_active 
        FROM users 
@@ -63,22 +51,30 @@ export class UserModel {
   }
 
   /**
+   * Get user by email with password hash (for authentication)
+   * @deprecated Use getByEmail instead - it now includes password_hash by default
+   */
+  static async getByEmailWithPassword(email: string): Promise<(User & { password_hash: string }) | null> {
+    return await this.getByEmail(email);
+  }
+
+  /**
    * Create a new user
    */
   static async create(userData: CreateUserData): Promise<User> {
-    // Hash the password
-    const saltRounds = 12;
-    const password_hash = await bcrypt.hash(userData.password, saltRounds);
+    // Hash the password using universal hasher
+    const password_hash = await hashPassword(userData.password);
 
     const userId = await Database.insert(
-      `INSERT INTO users (email, name, password_hash, role, avatar_url) 
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO users (email, name, password_hash, role, avatar_url, is_active) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         userData.email,
         userData.name,
         password_hash,
         userData.role || 'author',
-        userData.avatar_url || null
+        userData.avatar_url || null,
+        userData.is_active !== undefined ? userData.is_active : true
       ]
     );
 
@@ -105,7 +101,7 @@ export class UserModel {
       values.push(userData.name);
     }
     if (userData.password !== undefined) {
-      const password_hash = await bcrypt.hash(userData.password, 12);
+      const password_hash = await hashPassword(userData.password);
       updates.push('password_hash = ?');
       values.push(password_hash);
     }
@@ -187,7 +183,7 @@ export class UserModel {
    * Verify password
    */
   static async verifyPassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
-    return await bcrypt.compare(plainPassword, hashedPassword);
+    return await verifyPassword(plainPassword, hashedPassword);
   }
 
   /**

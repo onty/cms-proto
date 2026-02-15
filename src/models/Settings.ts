@@ -1,4 +1,4 @@
-import Database from '@/lib/db';
+import { Database } from '@/lib/database-adapter';
 import { Setting } from '@/types';
 
 export class SettingsModel {

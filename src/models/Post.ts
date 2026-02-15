@@ -1,4 +1,4 @@
-import Database from '@/lib/db';
+import { Database } from '@/lib/database-adapter';
 import { Post, CreatePostData, UpdatePostData, PostQuery } from '@/types';
 import { TagModel } from './Tag';
 
